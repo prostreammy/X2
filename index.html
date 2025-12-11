@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>119 Ria C Stream Player (Shaka)</title>
-    <!-- Shaka Player UI compiled CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.7.2/dist/controls.css">
+    <title>119 Ria C Stream Player (Shaka Core)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -45,15 +43,10 @@
             font-weight: bold;
             margin: 0;
         }
-        /* Shaka player container needs to be in the DOM for the UI to attach correctly */
-        #video-container {
-            width: 100%;
-            aspect-ratio: 16 / 9;
-            background-color: #000;
-        }
         video {
             width: 100%;
-            height: 100%;
+            height: auto;
+            display: block;
         }
     </style>
 </head>
@@ -64,14 +57,12 @@
             <img src="https://get.perfecttv.net/logo/ria.png" alt="Channel Logo" class="channel-logo" id="channel-logo">
             <h1 class="channel-name" id="channel-name">119 Ria C</h1>
         </div>
-        <!-- The data-shaka-player-container attribute is required for the UI -->
-        <div id="video-container" data-shaka-player-container>
-            <video id="video-player" data-shaka-player autoplay controls></video>
-        </div>
+        <!-- Simple video element with browser controls -->
+        <video id="video-player" controls autoplay></video>
     </div>
 
-    <!-- Shaka Player UI compiled library -->
-    <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.7.2/dist/shaka-player.ui.js"></script>
+    <!-- Shaka Player CORE library (no UI) -->
+    <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.7.2/dist/shaka-player.js"></script>
 
     <script>
         document.addEventListener("DOMContentLoaded", async function() {
@@ -92,51 +83,56 @@
             document.getElementById('channel-name').innerText = channelName;
             document.getElementById('channel-logo').src = channelLogo;
 
-            // --- Setup Shaka Player ---
+            // --- Setup Shaka Player (Simple, Core Version) ---
             const video = document.getElementById('video-player');
-            const videoContainer = document.getElementById('video-container');
 
-            // Install shaka player UI controls
-            const ui = new shaka.ui.Overlay(video, videoContainer, videoContainer);
-            const controls = ui.getControls();
-            const player = controls.getPlayer();
+            // 1. Install shaka player polyfills to support older browsers
+            shaka.polyfill.installAll();
 
-            // --- Add a request filter to route ALL requests through our proxy ---
-            player.getNetworkingEngine().registerRequestFilter((type, request) => {
-                // We only care about manifest and segment requests
-                if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
-                    type === shaka.net.NetworkingEngine.RequestType.SEGMENT) {
-                    
-                    const originalUrl = request.uris[0];
-                    // Check if the URL is from the target domain that requires a User-Agent
-                    if (originalUrl.startsWith('https://load.perfecttv.net/')) {
-                        // Rewrite the URL to use our proxy
-                        const proxiedUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
-                        request.uris[0] = proxiedUrl;
-                        console.log(`[Shaka RequestFilter] Redirecting ${originalUrl} to ${proxiedUrl}`);
-                    }
-                }
-            });
+            // 2. Check if the browser supports the necessary features
+            if (shaka.Player.isBrowserSupported()) {
+                // 3. Create a new player instance directly and attach it to the video element
+                const player = new shaka.Player(video);
 
-            // --- Configure for ClearKey DRM ---
-            try {
-                player.configure({
-                    drm: {
-                        clearKeys: {
-                            [keyId]: key
+                // --- Add a request filter to route ALL requests through our proxy ---
+                player.getNetworkingEngine().registerRequestFilter((type, request) => {
+                    // We only care about manifest and segment requests
+                    if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
+                        type === shaka.net.NetworkingEngine.RequestType.SEGMENT) {
+                        
+                        const originalUrl = request.uris[0];
+                        // Check if the URL is from the target domain that requires a User-Agent
+                        if (originalUrl.startsWith('https://load.perfecttv.net/')) {
+                            // Rewrite the URL to use our proxy
+                            const proxiedUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
+                            request.uris[0] = proxiedUrl;
+                            console.log(`[Shaka RequestFilter] Redirecting ${originalUrl} to ${proxiedUrl}`);
                         }
                     }
                 });
-            } catch (e) {
-                console.error('Error configuring DRM', e);
-            }
 
-            // --- Load the stream ---
-            try {
-                await player.load(manifestUrl);
-                console.log('The stream has been loaded successfully!');
-            } catch (e) {
-                console.error('Error loading stream', e);
+                // --- Configure for ClearKey DRM ---
+                try {
+                    player.configure({
+                        drm: {
+                            clearKeys: {
+                                [keyId]: key
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error configuring DRM', e);
+                }
+
+                // --- Load the stream ---
+                try {
+                    await player.load(manifestUrl);
+                    console.log('The stream has been loaded successfully!');
+                } catch (e) {
+                    console.error('Error loading stream', e);
+                }
+            } else {
+                console.error('Browser not supported!');
             }
         });
     </script>
