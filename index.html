@@ -3,138 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>119 Ria C Stream Player (Shaka Core)</title>
+    <title>119 Ria C - Perfect Player</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-            box-sizing: border-box;
         }
-        .player-container {
+        .container {
             width: 100%;
-            max-width: 900px;
-            background-color: #1e1e1e;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            max-width: 1000px;
+            background: #1e1e1e;
+            border-radius: 12px;
             overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.8);
         }
-        .channel-header {
+        .header {
+            padding: 15px 20px;
+            background: #2c2c2c;
             display: flex;
             align-items: center;
-            padding: 15px;
-            background-color: #2a2a2a;
-            border-bottom: 1px solid #444;
+            gap: 15px;
         }
-        .channel-logo {
-            height: 40px;
-            margin-right: 15px;
-            border-radius: 4px;
+        .header img {
+            height: 50px;
+            border-radius: 8px;
         }
-        .channel-name {
-            font-size: 1.5em;
-            font-weight: bold;
+        .header h1 {
             margin: 0;
+            font-size: 1.6em;
         }
         video {
             width: 100%;
             height: auto;
-            display: block;
+            background: #000;
+        }
+        .status {
+            padding: 10px;
+            text-align: center;
+            background: #333;
+            font-family: monospace;
         }
     </style>
 </head>
 <body>
 
-    <div class="player-container">
-        <div class="channel-header">
-            <img src="https://get.perfecttv.net/logo/ria.png" alt="Channel Logo" class="channel-logo" id="channel-logo">
-            <h1 class="channel-name" id="channel-name">119 Ria C</h1>
-        </div>
-        <!-- Simple video element with browser controls -->
-        <video id="video-player" controls autoplay></video>
+<div class="container">
+    <div class="header">
+        <img src="https://get.perfecttv.net/logo/ria.png" alt="RIA">
+        <h1>119 Ria C (HD)</h1>
     </div>
+    <video id="video" controls autoplay playsinline></video>
+    <div class="status" id="status">Loading stream...</div>
+</div>
 
-    <!-- Shaka Player CORE library (no UI) -->
-    <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.7.2/dist/shaka-player.js"></script>
+<!-- Shaka Player (latest core) -->
+<script src="https://cdn.jsdelivr.net/npm/shaka-player@4.10.5/dist/shaka-player.compiled.js"></script>
 
-    <script>
-        document.addEventListener("DOMContentLoaded", async function() {
-            // --- Configuration from your M3U data ---
-            const channelName = "119 Ria C";
-            const channelLogo = "https://get.perfecttv.net/logo/ria.png";
-            
-            // --- MANIFEST URL ---
-            // We use our proxy for the initial manifest request.
-            const originalManifestUrl = 'https://load.perfecttv.net/rwt.mpd?username=vip_r92bmh1k&password=yb3IpqrB&channel=riahd';
-            const manifestUrl = `/api/proxy?url=${encodeURIComponent(originalManifestUrl)}`;
+<script>
+    const video = document.getElementById('video');
+    const status = document.getElementById('status');
 
-            // --- DRM KEYS ---
-            const licenseKeyString = 'd5249cb40505495494828f42c37087cb:d59f6a7bed00bd5348355ab5b3ee6aa0';
-            const [keyId, key] = licenseKeyString.split(':');
+    // === YOUR STREAM DETAILS ===
+    const manifestUrl = 'https://load.perfecttv.net/rwt.mpd?username=vip_r92bmh1k&password=yb3IpqrB&channel=riahd';
+    const clearKey = {
+        kid: '1SSsJAUQSVSUiC9Cw3CHyw==', // base64 of d5249cb40505495494828f42c37087cb
+        key: '1Z9qe+0AvVOIV1q1s+5qoA=='  // base64 of d59f6a7bed00bd5348355ab5b3ee6aa0
+    };
 
-            // --- Update UI ---
-            document.getElementById('channel-name').innerText = channelName;
-            document.getElementById('channel-logo').src = channelLogo;
+    // Optional: If you have a working proxy (recommended to bypass hotlink protection)
+    const useProxy = true; // Set to false if you want direct access (may fail due to User-Agent checks)
+    const proxyUrl = (url) => `/api/proxy?url=${encodeURIComponent(url)}`;
 
-            // --- Setup Shaka Player (Simple, Core Version) ---
-            const video = document.getElementById('video-player');
+    async function initPlayer() {
+        // Install polyfills
+        shaka.polyfill.installAll();
 
-            // 1. Install shaka player polyfills to support older browsers
-            shaka.polyfill.installAll();
+        if (!shaka.Player.isBrowserSupported()) {
+            status.textContent = "Browser not supported!";
+            return;
+        }
 
-            // 2. Check if the browser supports the necessary features
-            if (shaka.Player.isBrowserSupported()) {
-                // 3. Create a new player instance directly and attach it to the video element
-                const player = new shaka.Player(video);
+        const player = new shaka.Player(video);
 
-                // --- Add a request filter to route ALL requests through our proxy ---
-                player.getNetworkingEngine().registerRequestFilter((type, request) => {
-                    // We only care about manifest and segment requests
-                    if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
-                        type === shaka.net.NetworkingEngine.RequestType.SEGMENT) {
-                        
-                        const originalUrl = request.uris[0];
-                        // Check if the URL is from the target domain that requires a User-Agent
-                        if (originalUrl.startsWith('https://load.perfecttv.net/')) {
-                            // Rewrite the URL to use our proxy
-                            const proxiedUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
-                            request.uris[0] = proxiedUrl;
-                            console.log(`[Shaka RequestFilter] Redirecting ${originalUrl} to ${proxiedUrl}`);
-                        }
-                    }
-                });
+        // === Proxy all requests (manifest + segments) through your backend ===
+        player.getNetworkingEngine().registerRequestFilter((type, request) => {
+            if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
+                type === shaka.net.NetworkingEngine.RequestType.SEGMENT) {
 
-                // --- Configure for ClearKey DRM ---
-                try {
-                    player.configure({
-                        drm: {
-                            clearKeys: {
-                                [keyId]: key
-                            }
-                        }
-                    });
-                } catch (e) {
-                    console.error('Error configuring DRM', e);
+                const original = request.uris[0];
+                if (useProxy) {
+                    request.uris[0] = proxyUrl(original);
+                    console.log("Proxy →", request.uris[0]);
+                } else {
+                    // Must set proper User-Agent or provider blocks it
+                    request.headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36';
                 }
-
-                // --- Load the stream ---
-                try {
-                    await player.load(manifestUrl);
-                    console.log('The stream has been loaded successfully!');
-                } catch (e) {
-                    console.error('Error loading stream', e);
-                }
-            } else {
-                console.error('Browser not supported!');
             }
         });
-    </script>
+
+        // === Configure Real ClearKey (this works because provider uses org.w3.clearkey) ===
+        player.configure({
+            drm: {
+                clearKeys: {
+                    [clearKey.kid]: clearKey.key
+                }
+            }
+        });
+
+        // Error handling
+        player.addEventListener('error', (event) => {
+            console.error('Shaka Error', event.detail);
+            status.textContent = `Error: ${event.detail.code} - Check console`;
+        });
+
+        try {
+            status.textContent = "Connecting...";
+            const finalManifest = useProxy ? proxyUrl(manifestUrl) : manifestUrl;
+            await player.load(finalManifest);
+            status.textContent = "Playing 119 Ria C HD";
+            console.log("Stream loaded successfully!");
+        } catch (e) {
+            console.error("Load failed", e);
+            status.textContent = "Failed to load stream";
+        }
+    }
+
+    // Start
+    initPlayer();
+</script>
+
 </body>
 </html>
