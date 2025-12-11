@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>119 Ria Stream Player</title>
+    <title>119 Ria C Stream Player</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -55,7 +55,7 @@
     <div class="player-container">
         <div class="channel-header">
             <img src="https://get.perfecttv.net/logo/ria.png" alt="Channel Logo" class="channel-logo" id="channel-logo">
-            <h1 class="channel-name" id="channel-name">119 Ria</h1>
+            <h1 class="channel-name" id="channel-name">119 Ria C</h1>
         </div>
         <video id="video-player" controls autoplay></video>
     </div>
@@ -65,17 +65,17 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // --- Configuration from your M3U data ---
-            const channelName = "119 Ria";
+            // --- Configuration from your new M3U data ---
+            const channelName = "119 Ria C";
             const channelLogo = "https://get.perfecttv.net/logo/ria.png";
             
             // --- MANIFEST URL ---
-            // The direct URL is blocked by CORS, so we use our serverless proxy.
-            // The proxy fetches the manifest on our behalf, bypassing browser security.
-            const manifestUrl = `/api/proxy?url=${encodeURIComponent('https://get.perfecttv.net/dash2.mpd?channel=astroria&username=vip_level7&password=vip_level7')}`;
+            // We pass the full URL to our proxy. The proxy will handle adding the User-Agent.
+            const originalManifestUrl = 'https://load.perfecttv.net/rwt.mpd?username=vip_r92bmh1k&password=yb3IpqrB&channel=riahd';
+            const manifestUrl = `/api/proxy?url=${encodeURIComponent(originalManifestUrl)}`;
 
             // --- DRM KEYS ---
-            const licenseKeyString = '3f726fd5cbbf5944437a4dbfab431b10:376b009796e4ad50ea8f68d796676692';
+            const licenseKeyString = 'd5249cb40505495494828f42c37087cb:d59f6a7bed00bd5348355ab5b3ee6aa0';
             const [keyId, key] = licenseKeyString.split(':');
 
             // --- Update UI ---
