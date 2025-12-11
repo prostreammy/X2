@@ -10,46 +10,35 @@ export default async function handler(req, res) {
     }
 
     try {
-        // This User-Agent is required by the new stream server
-        const userAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36';
-        const headers = { 'User-Agent': userAgent };
-
         const targetUrl = decodeURIComponent(url);
+
+        // This User-Agent is required by the stream server
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
+        };
+
         const response = await fetch(targetUrl, { headers });
 
         if (!response.ok) {
-            console.error(`Target server responded with status: ${response.status} ${response.statusText}`);
+            console.error(`Target server responded with status: ${response.status} ${response.statusText} for URL: ${targetUrl}`);
             return res.status(response.status).send(`Error from target server: ${response.statusText}`);
         }
 
+        // Get content type and other relevant headers from the original response
         const contentType = response.headers.get('content-type');
+        const contentLength = response.headers.get('content-length');
 
-        // If it's the manifest (XML), we need to rewrite it
-        if (contentType && contentType.includes('application/dash+xml')) {
-            const manifestText = await response.text();
-            const origin = new URL(targetUrl).origin;
-
-            // Rewrite all relative URLs to go through our proxy
-            // This regex finds <BaseURL>...</BaseURL> and prepends our proxy URL
-            const modifiedManifest = manifestText.replace(
-                /<BaseURL>(.*?)<\/BaseURL>/g,
-                (match, p1) => {
-                    // Ensure the path doesn't start with a slash to avoid double slashes
-                    const relativePath = p1.startsWith('/') ? p1.substring(1) : p1;
-                    const absolutePath = `${origin}/${relativePath}`;
-                    const proxiedUrl = `/api/proxy?url=${encodeURIComponent(absolutePath)}`;
-                    return `<BaseURL>${proxiedUrl}</BaseURL>`;
-                }
-            );
-
-            res.setHeader('Content-Type', 'application/dash+xml');
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            return res.send(modifiedManifest);
+        // Set headers for the proxy response
+        if (contentType) {
+            res.setHeader('Content-Type', contentType);
         }
-
-        // For all other requests (like video/audio segments), just pipe the data
-        res.setHeader('Content-Type', contentType);
+        if (contentLength) {
+            res.setHeader('Content-Length', contentLength);
+        }
         res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+
+        // Send the response body directly
         response.body.pipe(res);
 
     } catch (error) {
