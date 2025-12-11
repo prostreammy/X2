@@ -69,13 +69,12 @@
             const channelName = "119 Ria";
             const channelLogo = "https://get.perfecttv.net/logo/ria.png";
             
-            // IMPORTANT: Use the proxy URL if you have CORS issues.
-            // To use the proxy, uncomment the line below and comment out the direct manifestUrl.
+            // --- MANIFEST URL ---
+            // The direct URL is blocked by CORS, so we use our serverless proxy.
+            // The proxy fetches the manifest on our behalf, bypassing browser security.
             const manifestUrl = `/api/proxy?url=${encodeURIComponent('https://get.perfecttv.net/dash2.mpd?channel=astroria&username=vip_level7&password=vip_level7')}`;
-            
-            // Direct URL (try this first)
-            //const manifestUrl = 'https://get.perfecttv.net/dash2.mpd?channel=astroria&username=vip_level7&password=vip_level7';
 
+            // --- DRM KEYS ---
             const licenseKeyString = '3f726fd5cbbf5944437a4dbfab431b10:376b009796e4ad50ea8f68d796676692';
             const [keyId, key] = licenseKeyString.split(':');
 
@@ -96,7 +95,7 @@
                 }
             });
 
-            // Initialize the player with the manifest URL
+            // Initialize the player with the proxied manifest URL
             player.initialize(video, manifestUrl, true);
         });
     </script>
