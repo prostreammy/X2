@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>119 Ria C Stream Player</title>
+    <title>119 Ria C Stream Player (Shaka)</title>
+    <!-- Shaka Player UI compiled CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shaka-player@4.7.2/dist/controls.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -43,10 +45,15 @@
             font-weight: bold;
             margin: 0;
         }
+        /* Shaka player container needs to be in the DOM for the UI to attach correctly */
+        #video-container {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background-color: #000;
+        }
         video {
             width: 100%;
-            height: auto;
-            display: block;
+            height: 100%;
         }
     </style>
 </head>
@@ -57,20 +64,23 @@
             <img src="https://get.perfecttv.net/logo/ria.png" alt="Channel Logo" class="channel-logo" id="channel-logo">
             <h1 class="channel-name" id="channel-name">119 Ria C</h1>
         </div>
-        <video id="video-player" controls autoplay></video>
+        <!-- The data-shaka-player-container attribute is required for the UI -->
+        <div id="video-container" data-shaka-player-container>
+            <video id="video-player" data-shaka-player autoplay controls></video>
+        </div>
     </div>
 
-    <!-- Dash.js player from a CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/dashjs@4.7.0/dist/dash.all.min.js"></script>
+    <!-- Shaka Player UI compiled library -->
+    <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.7.2/dist/shaka-player.ui.js"></script>
 
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            // --- Configuration from your new M3U data ---
+        document.addEventListener("DOMContentLoaded", async function() {
+            // --- Configuration from your M3U data ---
             const channelName = "119 Ria C";
             const channelLogo = "https://get.perfecttv.net/logo/ria.png";
             
             // --- MANIFEST URL ---
-            // The manifest itself is also proxied.
+            // We use our proxy for the initial manifest request.
             const originalManifestUrl = 'https://load.perfecttv.net/rwt.mpd?username=vip_r92bmh1k&password=yb3IpqrB&channel=riahd';
             const manifestUrl = `/api/proxy?url=${encodeURIComponent(originalManifestUrl)}`;
 
@@ -82,39 +92,52 @@
             document.getElementById('channel-name').innerText = channelName;
             document.getElementById('channel-logo').src = channelLogo;
 
-            // --- Setup Player (FINAL CORRECT VERSION) ---
-            const video = document.getElementById("video-player");
+            // --- Setup Shaka Player ---
+            const video = document.getElementById('video-player');
+            const videoContainer = document.getElementById('video-container');
 
-            // 1. Create the player instance
-            const player = dashjs.MediaPlayer().create();
+            // Install shaka player UI controls
+            const ui = new shaka.ui.Overlay(video, videoContainer, videoContainer);
+            const controls = ui.getControls();
+            const player = controls.getPlayer();
 
-            // 2. Register the request filter ON THE PLAYER INSTANCE
-            player.registerRequestFilter((type, request) => {
-                // We want to intercept requests for manifest, media segments, and initialization segments.
-                if (request.type === 'MPD' || request.type === 'MediaSegment' || request.type === 'InitializationSegment') {
-                    const originalUrl = request.url;
+            // --- Add a request filter to route ALL requests through our proxy ---
+            player.getNetworkingEngine().registerRequestFilter((type, request) => {
+                // We only care about manifest and segment requests
+                if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
+                    type === shaka.net.NetworkingEngine.RequestType.SEGMENT) {
+                    
+                    const originalUrl = request.uris[0];
                     // Check if the URL is from the target domain that requires a User-Agent
                     if (originalUrl.startsWith('https://load.perfecttv.net/')) {
                         // Rewrite the URL to use our proxy
-                        request.url = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
-                        console.log(`[RequestFilter] Redirecting ${originalUrl} to ${request.url}`);
-                    }
-                }
-                // The filter must return a promise that resolves with the request object
-                return Promise.resolve(request);
-            });
-
-            // 3. Configure for ClearKey DRM
-            player.setProtectionData({
-                "org.w3.clearkey": {
-                    "clearkeys": {
-                        [keyId]: key
+                        const proxiedUrl = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
+                        request.uris[0] = proxiedUrl;
+                        console.log(`[Shaka RequestFilter] Redirecting ${originalUrl} to ${proxiedUrl}`);
                     }
                 }
             });
 
-            // 4. Initialize the player
-            player.initialize(video, manifestUrl, true);
+            // --- Configure for ClearKey DRM ---
+            try {
+                player.configure({
+                    drm: {
+                        clearKeys: {
+                            [keyId]: key
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error('Error configuring DRM', e);
+            }
+
+            // --- Load the stream ---
+            try {
+                await player.load(manifestUrl);
+                console.log('The stream has been loaded successfully!');
+            } catch (e) {
+                console.error('Error loading stream', e);
+            }
         });
     </script>
 </body>
