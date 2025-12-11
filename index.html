@@ -70,7 +70,7 @@
             const channelLogo = "https://get.perfecttv.net/logo/ria.png";
             
             // --- MANIFEST URL ---
-            // We pass the full URL to our proxy. The proxy will handle adding the User-Agent.
+            // The manifest itself is also proxied.
             const originalManifestUrl = 'https://load.perfecttv.net/rwt.mpd?username=vip_r92bmh1k&password=yb3IpqrB&channel=riahd';
             const manifestUrl = `/api/proxy?url=${encodeURIComponent(originalManifestUrl)}`;
 
@@ -85,7 +85,23 @@
             // --- Setup Player ---
             const video = document.getElementById("video-player");
             const player = dashjs.MediaPlayer().create();
-            
+
+            // --- NEW: Add a request filter to route ALL requests through our proxy ---
+            player.addRequestFilter((type, request) => {
+                // We want to intercept requests for manifest, media segments, and initialization segments.
+                if (request.type === 'MPD' || request.type === 'MediaSegment' || request.type === 'InitializationSegment') {
+                    const originalUrl = request.url;
+                    // Check if the URL is from the target domain that requires a User-Agent
+                    if (originalUrl.startsWith('https://load.perfecttv.net/')) {
+                        // Rewrite the URL to use our proxy
+                        request.url = `/api/proxy?url=${encodeURIComponent(originalUrl)}`;
+                        console.log(`[RequestFilter] Redirecting ${originalUrl} to ${request.url}`);
+                    }
+                }
+                // The filter must return a promise that resolves with the request object
+                return Promise.resolve(request);
+            });
+
             // Configure for ClearKey DRM
             player.setProtectionData({
                 "org.w3.clearkey": {
@@ -95,7 +111,7 @@
                 }
             });
 
-            // Initialize the player with the proxied manifest URL
+            // Initialize the player
             player.initialize(video, manifestUrl, true);
         });
     </script>
