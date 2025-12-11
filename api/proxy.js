@@ -24,11 +24,9 @@ export default async function handler(req, res) {
             return res.status(response.status).send(`Error from target server: ${response.statusText}`);
         }
 
-        // Get content type and other relevant headers from the original response
         const contentType = response.headers.get('content-type');
         const contentLength = response.headers.get('content-length');
 
-        // Set headers for the proxy response
         if (contentType) {
             res.setHeader('Content-Type', contentType);
         }
@@ -38,7 +36,6 @@ export default async function handler(req, res) {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 
-        // Send the response body directly
         response.body.pipe(res);
 
     } catch (error) {
