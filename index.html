@@ -82,14 +82,14 @@
             document.getElementById('channel-name').innerText = channelName;
             document.getElementById('channel-logo').src = channelLogo;
 
-            // --- Setup Player (CORRECTED) ---
+            // --- Setup Player (FINAL CORRECT VERSION) ---
             const video = document.getElementById("video-player");
 
-            // Get the MediaPlayer factory
-            const MediaPlayer = dashjs.MediaPlayer();
+            // 1. Create the player instance
+            const player = dashjs.MediaPlayer().create();
 
-            // --- CORRECTLY register the request filter on the factory ---
-            MediaPlayer.registerRequestFilter((type, request) => {
+            // 2. Register the request filter ON THE PLAYER INSTANCE
+            player.registerRequestFilter((type, request) => {
                 // We want to intercept requests for manifest, media segments, and initialization segments.
                 if (request.type === 'MPD' || request.type === 'MediaSegment' || request.type === 'InitializationSegment') {
                     const originalUrl = request.url;
@@ -104,10 +104,7 @@
                 return Promise.resolve(request);
             });
 
-            // Now, create the player instance from the factory
-            const player = MediaPlayer.create();
-
-            // Configure for ClearKey DRM
+            // 3. Configure for ClearKey DRM
             player.setProtectionData({
                 "org.w3.clearkey": {
                     "clearkeys": {
@@ -116,7 +113,7 @@
                 }
             });
 
-            // Initialize the player
+            // 4. Initialize the player
             player.initialize(video, manifestUrl, true);
         });
     </script>
