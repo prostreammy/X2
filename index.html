@@ -82,12 +82,14 @@
             document.getElementById('channel-name').innerText = channelName;
             document.getElementById('channel-logo').src = channelLogo;
 
-            // --- Setup Player ---
+            // --- Setup Player (CORRECTED) ---
             const video = document.getElementById("video-player");
-            const player = dashjs.MediaPlayer().create();
 
-            // --- NEW: Add a request filter to route ALL requests through our proxy ---
-            player.addRequestFilter((type, request) => {
+            // Get the MediaPlayer factory
+            const MediaPlayer = dashjs.MediaPlayer();
+
+            // --- CORRECTLY register the request filter on the factory ---
+            MediaPlayer.registerRequestFilter((type, request) => {
                 // We want to intercept requests for manifest, media segments, and initialization segments.
                 if (request.type === 'MPD' || request.type === 'MediaSegment' || request.type === 'InitializationSegment') {
                     const originalUrl = request.url;
@@ -101,6 +103,9 @@
                 // The filter must return a promise that resolves with the request object
                 return Promise.resolve(request);
             });
+
+            // Now, create the player instance from the factory
+            const player = MediaPlayer.create();
 
             // Configure for ClearKey DRM
             player.setProtectionData({
