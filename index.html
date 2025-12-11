@@ -3,52 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>119 Ria C - Perfect Player</title>
+    <title>119 Ria C HD - Working 2025</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #000;
-            color: #fff;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 1000px;
-            background: #1e1e1e;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.8);
-        }
-        .header {
-            padding: 15px 20px;
-            background: #2c2c2c;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .header img {
-            height: 50px;
-            border-radius: 8px;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 1.6em;
-        }
-        video {
-            width: 100%;
-            height: auto;
-            background: #000;
-        }
-        .status {
-            padding: 10px;
-            text-align: center;
-            background: #333;
-            font-family: monospace;
-        }
+        body { margin:0; background:#000; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:Arial; }
+        .container { width:100%; max-width:1100px; background:#111; border-radius:12px; overflow:hidden; box-shadow:0 0 30px rgba(0,150,255,0.3); }
+        .header { padding:15px 20px; background:linear-gradient(90deg,#0066ff,#00aaff); display:flex; align-items:center; gap:15px; }
+        .header img { height:50px; border-radius:8px; }
+        .header h1 { margin:0; color:white; font-size:1.6em; }
+        video { width:100%; background:black; }
+        .status { padding:10px; text-align:center; background:#222; color:#0f0; font-family:monospace; }
     </style>
 </head>
 <body>
@@ -56,87 +19,73 @@
 <div class="container">
     <div class="header">
         <img src="https://get.perfecttv.net/logo/ria.png" alt="RIA">
-        <h1>119 Ria C (HD)</h1>
+        <h1>119 Ria C HD</h1>
     </div>
     <video id="video" controls autoplay playsinline></video>
-    <div class="status" id="status">Loading stream...</div>
+    <div class="status" id="status">Initializing player...</div>
 </div>
 
-<!-- Shaka Player (latest core) -->
+<!-- Shaka Player v4.10+ (latest stable) -->
 <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.10.5/dist/shaka-player.compiled.js"></script>
 
 <script>
     const video = document.getElementById('video');
     const status = document.getElementById('status');
 
-    // === YOUR STREAM DETAILS ===
-    const manifestUrl = 'https://load.perfecttv.net/rwt.mpd?username=vip_r92bmh1k&password=yb3IpqrB&channel=riahd';
-    const clearKey = {
-        kid: '1SSsJAUQSVSUiC9Cw3CHyw==', // base64 of d5249cb40505495494828f42c37087cb
-        key: '1Z9qe+0AvVOIV1q1s+5qoA=='  // base64 of d59f6a7bed00bd5348355ab5b3ee6aa0
-    };
+    const REAL_MANIFEST = 'https://load.perfecttv.net/rwt.mpd?username=vip_r92bmh1k&password=yb3IpqrB&channel=riahd';
 
-    // Optional: If you have a working proxy (recommended to bypass hotlink protection)
-    const useProxy = true; // Set to false if you want direct access (may fail due to User-Agent checks)
-    const proxyUrl = (url) => `/api/proxy?url=${encodeURIComponent(url)}`;
+    // YOUR PROXY ENDPOINT (must be on same domain or CORS-enabled)
+    const PROXY_URL = '/api/proxy';  // ← Change only this if needed
 
-    async function initPlayer() {
-        // Install polyfills
+    async function init() {
         shaka.polyfill.installAll();
 
         if (!shaka.Player.isBrowserSupported()) {
-            status.textContent = "Browser not supported!";
+            status.textContent = "Browser not supported";
             return;
         }
 
-        const player = new shaka.Player(video);
+        // Modern way (no deprecation warning)
+        const player = new shaka.Player();
+        await player.attach(video);
 
-        // === Proxy all requests (manifest + segments) through your backend ===
+        // === PROXY ALL REQUESTS (manifest + segments) ===
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             if (type === shaka.net.NetworkingEngine.RequestType.MANIFEST ||
                 type === shaka.net.NetworkingEngine.RequestType.SEGMENT) {
 
-                const original = request.uris[0];
-                if (useProxy) {
-                    request.uris[0] = proxyUrl(original);
-                    console.log("Proxy →", request.uris[0]);
-                } else {
-                    // Must set proper User-Agent or provider blocks it
-                    request.headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36';
-                }
+                const originalUrl = request.uris[0];
+                request.uris[0] = `${PROXY_URL}?url=${encodeURIComponent(originalUrl)}`;
             }
         });
 
-        // === Configure Real ClearKey (this works because provider uses org.w3.clearkey) ===
+        // === REAL CLEARKY (base64 encoded - this is correct) ===
         player.configure({
             drm: {
                 clearKeys: {
-                    [clearKey.kid]: clearKey.key
+                    '1SSsJAUQSVSUiC9Cw3CHyw==': '1Z9qe+0AvVOIV1q1s+5qoA=='   // kid:key in base64
                 }
             }
         });
 
         // Error handling
-        player.addEventListener('error', (event) => {
-            console.error('Shaka Error', event.detail);
-            status.textContent = `Error: ${event.detail.code} - Check console`;
+        player.addEventListener('error', (e) => {
+            console.error('Shaka Error:', e.detail);
+            status.textContent = `Error ${e.detail.code}: ${e.detail.message || 'Check console'}`;
         });
 
         try {
-            status.textContent = "Connecting...";
-            const finalManifest = useProxy ? proxyUrl(manifestUrl) : manifestUrl;
-            await player.load(finalManifest);
-            status.textContent = "Playing 119 Ria C HD";
-            console.log("Stream loaded successfully!");
-        } catch (e) {
-            console.error("Load failed", e);
+            status.textContent = "Loading stream...";
+            await player.load(`${PROXY_URL}?url=${encodeURIComponent(REAL_MANIFEST)}`);
+            status.textContent = "✓ Playing 119 Ria C HD";
+            status.style.background = '#0a0';
+        } catch (err) {
             status.textContent = "Failed to load stream";
+            console.error(err);
         }
     }
 
-    // Start
-    initPlayer();
+    init();
 </script>
-
 </body>
 </html>
