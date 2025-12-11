@@ -71,10 +71,10 @@
             
             // IMPORTANT: Use the proxy URL if you have CORS issues.
             // To use the proxy, uncomment the line below and comment out the direct manifestUrl.
-            // const manifestUrl = `/api/proxy?url=${encodeURIComponent('https://get.perfecttv.net/dash2.mpd?channel=astroria&username=vip_level7&password=vip_level7')}`;
+            const manifestUrl = `/api/proxy?url=${encodeURIComponent('https://get.perfecttv.net/dash2.mpd?channel=astroria&username=vip_level7&password=vip_level7')}`;
             
             // Direct URL (try this first)
-            const manifestUrl = 'https://get.perfecttv.net/dash2.mpd?channel=astroria&username=vip_level7&password=vip_level7';
+            //const manifestUrl = 'https://get.perfecttv.net/dash2.mpd?channel=astroria&username=vip_level7&password=vip_level7';
 
             const licenseKeyString = '3f726fd5cbbf5944437a4dbfab431b10:376b009796e4ad50ea8f68d796676692';
             const [keyId, key] = licenseKeyString.split(':');
