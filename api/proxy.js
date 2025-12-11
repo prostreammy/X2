@@ -1,45 +1,39 @@
-// api/proxy.js
-export default async function handler(req, res) {
-    if (req.method !== 'GET') {
-        return res.status(405).json({ message: 'Method Not Allowed' });
-    }
+// api/proxy.js  (Next.js API route example - works on Vercel too)
+import { NextResponse } from 'next/server';
 
-    const { url } = req.query;
-    if (!url) {
-        return res.status(400).json({ message: 'URL query parameter is required' });
-    }
+export async function GET(request) {
+    const { searchParams } = new URL(request.url);
+    const url = searchParams.get('url');
+    
+    if (!url) return new Response('Missing url', { status: 400 });
 
     try {
-        const targetUrl = decodeURIComponent(url);
+        const response = await fetch(decodeURIComponent(url), {
+            method: request.method,  // Supports GET and HEAD
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Referer': 'https://get.perfecttv.net/',
+                'Origin': 'https://get.perfecttv.net',
+            },
+        });
 
-        // This User-Agent is required by the stream server
-        const headers = {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
-        };
+        const headers = new Headers(response.headers);
+        headers.set('Access-Control-Allow-Origin', '*');
+        headers.delete('set-cookie'); // Avoid issues
 
-        const response = await fetch(targetUrl, { headers });
-
-        if (!response.ok) {
-            console.error(`Target server responded with status: ${response.status} ${response.statusText} for URL: ${targetUrl}`);
-            return res.status(response.status).send(`Error from target server: ${response.statusText}`);
-        }
-
-        const contentType = response.headers.get('content-type');
-        const contentLength = response.headers.get('content-length');
-
-        if (contentType) {
-            res.setHeader('Content-Type', contentType);
-        }
-        if (contentLength) {
-            res.setHeader('Content-Length', contentLength);
-        }
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-
-        response.body.pipe(res);
-
-    } catch (error) {
-        console.error('Proxy function failed:', error);
-        res.status(500).json({ message: 'Internal Server Error in proxy', details: error.message });
+        return new NextResponse(response.body, {
+            status: response.status,
+            headers,
+        });
+    } catch (e) {
+        return new Response('Proxy error: ' + e.message, { status: 500 });
     }
 }
+
+// Important for streaming large files
+export const config = {
+    api: {
+        responseLimit: false,
+        bodyParser: false,
+    },
+};
